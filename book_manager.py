@@ -389,8 +389,10 @@ def _get_download_url(link: str, title: str) -> str:
     
     # Find LibGen download button (usually says "GET")
     download_btn = soup.find('a', string="GET")
-    if download_btn:
-        return download_btn['href']
+    if download_btn and download_btn.get('href'):
+        # Convert relative URL to absolute URL using the original link as base
+        relative_url = download_btn['href']
+        return downloader.get_absolute_url(link, relative_url)
     
     return ""
                 # END NEW FUNCTION
