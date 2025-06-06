@@ -175,40 +175,57 @@ def _parse_book_info_page(soup: BeautifulSoup, book_id: str) -> BookInfo:
          if token.strip() and token.strip()[0].isnumeric()),
         None
     )
+                                              #Commented out to try new function
+    # every_url = soup.find_all('a')
+    # slow_urls_no_waitlist = set()
+    # slow_urls_with_waitlist = set()
+    # external_urls_libgen = set()
+    # external_urls_z_lib = set()
 
-    every_url = soup.find_all('a')
-    slow_urls_no_waitlist = set()
-    slow_urls_with_waitlist = set()
-    external_urls_libgen = set()
-    external_urls_z_lib = set()
 
+    # for url in every_url:
+    #     try:
+    #         if url.parent.text.strip().lower().startswith("option #"):
+    #             if url.text.strip().lower().startswith("slow partner server"):
+    #                 if url.next is not None and url.next.next is not None and "waitlist" in url.next.next.strip().lower():
+    #                     internal_text = url.next.next.strip().lower()
+    #                     if "no waitlist" in internal_text:
+    #                         slow_urls_no_waitlist.add(url['href'])
+    #                     else:
+    #                         slow_urls_with_waitlist.add(url['href'])
+    #             elif url.next is not None and url.next.next is not None and "click “GET” at the top" in url.next.next.text.strip():
+    #                 external_urls_libgen.add(url['href'])
+    #             elif url.text.strip().lower().startswith("z-lib"):
+    #                 if ".onion/" not in url['href']:
+    #                     external_urls_z_lib.add(url['href'])
+    #     except:
+    #         pass
 
-    for url in every_url:
+    # if USE_CF_BYPASS:
+    #     urls = list(slow_urls_no_waitlist) + list(external_urls_libgen) + list(slow_urls_with_waitlist) + list(external_urls_z_lib)
+    # else:
+    #     urls = list(external_urls_libgen) + list(external_urls_z_lib) + list(slow_urls_no_waitlist) + list(slow_urls_with_waitlist)
+
+    # for i in range(len(urls)):
+    #     urls[i] = downloader.get_absolute_url(AA_BASE_URL, urls[i])
+
+    #NEW FUNCTION:
+    libgen_urls = set()
+    for url in soup.find_all('a'):
         try:
-            if url.parent.text.strip().lower().startswith("option #"):
-                if url.text.strip().lower().startswith("slow partner server"):
-                    if url.next is not None and url.next.next is not None and "waitlist" in url.next.next.strip().lower():
-                        internal_text = url.next.next.strip().lower()
-                        if "no waitlist" in internal_text:
-                            slow_urls_no_waitlist.add(url['href'])
-                        else:
-                            slow_urls_with_waitlist.add(url['href'])
-                elif url.next is not None and url.next.next is not None and "click “GET” at the top" in url.next.next.text.strip():
-                    external_urls_libgen.add(url['href'])
-                elif url.text.strip().lower().startswith("z-lib"):
-                    if ".onion/" not in url['href']:
-                        external_urls_z_lib.add(url['href'])
+            # Identify LibGen links by the "click 'GET' at the top" text
+            if (url.next is not None and 
+                url.next.next is not None and 
+                "click “GET” at the top" in url.next.next.text.strip()):
+                libgen_urls.add(url['href'])
         except:
             pass
-
-    if USE_CF_BYPASS:
-        urls = list(slow_urls_no_waitlist) + list(external_urls_libgen) + list(slow_urls_with_waitlist) + list(external_urls_z_lib)
-    else:
-        urls = list(external_urls_libgen) + list(external_urls_z_lib) + list(slow_urls_no_waitlist) + list(slow_urls_with_waitlist)
-
+    
+    urls = list(libgen_urls)
     for i in range(len(urls)):
         urls[i] = downloader.get_absolute_url(AA_BASE_URL, urls[i])
-
+    #END NEW FUNCTION
+    
     # Extract basic information
     book_info = BookInfo(
         id=book_id,
@@ -284,14 +301,24 @@ def download_book(book_info: BookInfo, book_path: Path) -> bool:
     if len(book_info.download_urls) == 0:
         book_info = get_book_info(book_info.id)
     download_links = book_info.download_urls
+                        #COMMENTED OUT FOR NEW FUNCTION
+    # # If AA_DONATOR_KEY is set, use the fast download URL. Else try other sources.
+    # if AA_DONATOR_KEY != "":
+    #     download_links.insert(0, 
+    #         f"{AA_BASE_URL}/dyn/api/fast_download.json?md5={book_info.id}&key={AA_DONATOR_KEY}"
+    #     )
 
-    # If AA_DONATOR_KEY is set, use the fast download URL. Else try other sources.
-    if AA_DONATOR_KEY != "":
-        download_links.insert(0, 
-            f"{AA_BASE_URL}/dyn/api/fast_download.json?md5={book_info.id}&key={AA_DONATOR_KEY}"
-        )
+    #NEW FUNCTION
+     libgen_links = [
+        link for link in download_links 
+        if 'libgen.' in link or 'library.lol' in link
+    ]
     
-    for link in download_links:
+    if not libgen_links:
+        logger.error(f"No LibGen download links found for: {book_info.title}")
+        return False
+    #END NEW FUNCTION
+    for link in libgen_links:                                                                         #changed from for link in download_links
         try:
             download_url = _get_download_url(link, book_info.title)
             if download_url != "":
@@ -312,38 +339,58 @@ def download_book(book_info: BookInfo, book_path: Path) -> bool:
     
     return False
 
-def _get_download_url(link: str, title: str) -> str:
-    """Extract actual download URL from various source pages."""
+ #COMMENTED OUT FOR NEW FUNCTION
+# def _get_download_url(link: str, title: str) -> str:
+#     """Extract actual download URL from various source pages."""
 
-    url = ""
+#     url = ""
     
-    if link.startswith(f"{AA_BASE_URL}/dyn/api/fast_download.json"):
-        page = downloader.html_get_page(link)
-        url = json.loads(page).get("download_url")
-    else:
-        html = downloader.html_get_page(link)
+#     if link.startswith(f"{AA_BASE_URL}/dyn/api/fast_download.json"):
+#         page = downloader.html_get_page(link)
+#         url = json.loads(page).get("download_url")
+#     else:
+#         html = downloader.html_get_page(link)
         
-        if html == "":
-            return ""
+#         if html == "":
+#             return ""
         
-        soup = BeautifulSoup(html, 'html.parser')
+#         soup = BeautifulSoup(html, 'html.parser')
         
-        if link.startswith("https://z-lib."):
-            download_link = soup.find_all('a', href=True, class_="addDownloadedBook")
-            if download_link:
-                url = download_link[0]['href']            
-        elif link.startswith(f"{AA_BASE_URL}/slow_download/"):
-            download_links = soup.find_all('a', href=True, string="📚 Download now")
-            if not download_links:
-                countdown = soup.find_all('span', class_="js-partner-countdown")
-                if countdown:
-                    sleep_time = int(countdown[0].text)
-                    logger.info(f"Waiting {sleep_time}s for {title}")
-                    time.sleep(sleep_time)
-                    url = _get_download_url(link, title)
-            else:
-                url = download_links[0]['href']
-        else:
-            url = soup.find_all('a', string="GET")[0]['href']
+#         if link.startswith("https://z-lib."):
+#             download_link = soup.find_all('a', href=True, class_="addDownloadedBook")
+#             if download_link:
+#                 url = download_link[0]['href']            
+#         elif link.startswith(f"{AA_BASE_URL}/slow_download/"):
+#             download_links = soup.find_all('a', href=True, string="📚 Download now")
+#             if not download_links:
+#                 countdown = soup.find_all('span', class_="js-partner-countdown")
+#                 if countdown:
+#                     sleep_time = int(countdown[0].text)
+#                     logger.info(f"Waiting {sleep_time}s for {title}")
+#                     time.sleep(sleep_time)
+#                     url = _get_download_url(link, title)
+#             else:
+#                 url = download_links[0]['href']
+#         else:
+#             url = soup.find_all('a', string="GET")[0]['href']
 
-    return downloader.get_absolute_url(link, url)
+#     return downloader.get_absolute_url(link, url)
+                # NEW FUNCTION
+def _get_download_url(link: str, title: str) -> str:
+    """Extract download URL from LibGen pages only."""
+    if 'libgen.' not in link and 'library.lol' not in link:
+        return ""
+        
+    html = downloader.html_get_page(link)
+    if not html:
+        return ""
+    
+    soup = BeautifulSoup(html, 'html.parser')
+    
+    # Find LibGen download button (usually says "GET")
+    download_btn = soup.find('a', string="GET")
+    if download_btn:
+        return download_btn['href']
+    
+    return ""
+                # END NEW FUNCTION
