@@ -309,7 +309,7 @@ def download_book(book_info: BookInfo, book_path: Path) -> bool:
     #     )
 
     #NEW FUNCTION
-     libgen_links = [
+    libgen_links = [
         link for link in download_links 
         if 'libgen.' in link or 'library.lol' in link
     ]
